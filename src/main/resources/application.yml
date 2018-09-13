@@ -1,0 +1,12 @@
+spring:
+  data:
+    elasticsearch:
+      cluster-nodes: 192.168.199.192:9300
+      repositories:
+        enabled: true
+      properties:
+        transport:
+          tcp:
+            connect_timeout: 120s
+      # 集群名称
+      cluster-name: es-search
