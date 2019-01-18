@@ -46,19 +46,25 @@ public class HighlightBookRepositoryTest extends EsSearchApplicationTests {
         // 复合查询
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
-        // 以下为查询条件, 使用 must query 进行查询组合
-        MultiMatchQueryBuilder matchQuery = QueryBuilders.multiMatchQuery(query.getQueryString(), "name", "intro", "author");
-        boolQuery.must(matchQuery);
-
         PageRequest pageRequest = PageRequest.of(query.getPage() - 1, query.getSize());
-
-        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+        NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
                 .withQuery(boolQuery)
                 .withHighlightFields(
                         new HighlightBuilder.Field("name").preTags("<span style=\"color:red\">").postTags("</span>"),
                         new HighlightBuilder.Field("author").preTags("<span style=\"color:red\">").postTags("</span>"))
-                .withPageable(pageRequest)
-                .build();
+                .withPageable(pageRequest);
+
+        // 以下为查询条件, 使用 must query 进行查询组合
+//        MultiMatchQueryBuilder matchQuery = QueryBuilders.multiMatchQuery(query.getQueryString(), "name", "intro", "author");
+//        boolQuery.must(matchQuery);
+        String queryString = query.getQueryString();
+        // 最佳字段  + 降低除了name之外字段的权重系数
+        MatchQueryBuilder nameQuery = QueryBuilders.matchQuery("name", queryString);
+        MatchQueryBuilder authorQuery = QueryBuilders.matchQuery("author", queryString).boost(0.8f);
+        DisMaxQueryBuilder disMaxQueryBuilder = QueryBuilders.disMaxQuery().add(nameQuery).add(authorQuery);
+        queryBuilder.withQuery(disMaxQueryBuilder);
+
+        NativeSearchQuery searchQuery = queryBuilder.build();
         Page<Book> books = elasticsearchTemplate.queryForPage(searchQuery, Book.class, extResultMapper);
 
         books.forEach(e -> log.info("{}", e));
